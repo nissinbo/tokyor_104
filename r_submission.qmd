@@ -1,0 +1,231 @@
+---
+title: "「Rで医薬品承認申請」<br/>を調べた"
+author: "nissinbo"
+date: 2023-03-04
+execute:
+  eval: false
+  echo: true
+format:
+  revealjs:
+    theme: night
+    center: true
+    slide-number: true
+    preview-links: auto
+    logo: https://pbs.twimg.com/profile_images/1353348964343455744/6-bevjZq_400x400.jpg
+    footer: "Tokyo.R#104"
+    self-contained: true
+    reference-location: document
+lang: ja
+---
+
+## [@nissinbo_](https://twitter.com/nissinbo_)
+
+:::: {.columns}
+::: {.column width="35%"}
+
+![](https://pbs.twimg.com/profile_images/1353348964343455744/6-bevjZq_400x400.jpg)
+
+:::
+::: {.column width="65%"}
+
+- 製薬企業で医療データ分析
+- 人生初の`read.csv()`から4年
+- 好きな分野：薬剤疫学、医療情報学
+- 将来の夢　：古民家カフェをひらく
+
+:::
+::::
+
+## Disclaimer
+
+- 個人の見解です
+- マサカリお待ちしております
+
+# 医薬品のおはなし
+
+## 製薬企業が医薬品の承認を得るには
+
+- 各国の規制当局に申請を行い、認可される必要がある
+    - 日本はPMDA、米国はFDA、欧州はEMEA
+- 申請資料の主役は、ヒト対象の**臨床試験(≒治験)の結果**
+
+## 申請資料作成のこれまで
+
+- SAS言語一択！
+    - 詳しい経緯はわかりません
+    - 臨床試験で使われる解析はたいてい実行可能
+    - 昔から使われているから (コロンブスの卵?)
+    - SAS社が「正しい」と言ったらすべて信頼する?
+    - バグで間違った結果が出たらSAS社から補償されるの?
+- CDISCや、Excel/Wordでの出力など、規格への適合が必要
+
+## 誰もSAS必須とは言ってない
+
+- [FDA: Statistical Software Clarifying Statement](https://www.fda.gov/media/161196/download)
+
+```
+FDA does not require use of any specific software for statistical analyses, and statistical software is not explicitly discussed in Title 21 of the Code of Federal Regulations [e.g., in 21CFR part 11]. However, the software package(s) used for statistical analyses should be fully documented in the submission, including version and build identification.
+```
+
+# じゃ、R使ってもいい!?
+
+## 承認申請でRを使う動機
+
+- OSSである
+    - 無料、パッケージの内部検証が可能
+- 様々な統計手法のパッケージが使える
+    - [`gsDesign`](https://github.com/keaven/gsDesign), [`simtrial`](https://github.com/Merck/simtrial): 群逐次デザイン
+    - StanでMCMC
+- いい感じのビジュアライゼーション
+    - [`gtsummary`](https://www.danieldsjoberg.com/gtsummary/), [`ggconsort`](https://nissinbo.github.io/ggconsort_introduction/)
+- いい感じのレポーティング
+    - 総括報告書(CSR)作成の自動化
+
+## 承認申請でRを使う際の課題
+
+- Computerized System Validation (CSV)
+    - パッケージの"正確さ"を評価する必要がある
+    - インストール数などメタデータも大事らしい
+    - [R Validation Hub](https://www.pharmar.org/)や[外資製薬](https://www.pharmar.org/casestudies/)で議論中
+- 規格への適合
+    - [Pharmaverse](https://pharmaverse.org/), [Atorus社](https://github.com/atorus-research)でパッケージ開発が進行
+        - [admiral](https://github.com/pharmaverse/admiral), [xportr](https://github.com/atorus-research/xportr): CDISC周り
+        - [rtables](https://github.com/Roche/rtables), [visR](https://github.com/openpharma/visR), [Tplyr](https://github.com/atorus-research/Tplyr), [pharmaRTF](https://github.com/atorus-research/pharmaRTF): eCTD出力、Word形式のTLF出力
+
+# 「Rで申請」<br/>をやってみた人たち
+
+## R Consortium pilot submission
+
+- Rで臨床試験データ・解析をFDAに申請する見本例
+    - R Consortiumというコミュニティが主導
+    - 実際にFDAの担当者が確認
+    - データ, コード, 資料はGitHub等で公開
+- [概要](https://rconsortium.github.io/submissions-wg/pilot-overall.html)
+    - [第1弾](https://github.com/RConsortium/submissions-pilot1)は2022年3月に完了、[パッケージ](https://rconsortium.github.io/submissions-pilot1/)化
+    - [第2弾](https://github.com/RConsortium/submissions-pilot2)は2022年12月に完了、[Shiny](https://rconsortium.shinyapps.io/submissions-pilot2/)化
+    - [第3弾](https://github.com/RConsortium/submissions-pilot3)はこれから！
+
+## pilot第1弾で使われた技術
+
+- R自体のバージョン管理は多分Docker
+    - rocker/tidyverse:4.1.2でいけた
+- パッケージ管理
+    - MRAN: 特定日のsnapshotを再現したいから?
+    - `renv`
+    - `pkglite`: 自社開発パッケージを.txtからinstall
+- その他特徴的なパッケージ
+    - `haven`, `huxtable`, `pharmaRTF`, `r2rtf`, `Tplyr`, `visR`, `rtables`
+
+## pilot第1弾の再現メモ
+
+### Docker起動
+
+```
+docker run -e PASSWORD=rstudio --rm -p 8787:8787 rocker/tidyverse:4.1.2
+```
+
+- localhost:8787 にアクセス
+    - ID: rstudio, PASSWORD: rstudio
+
+## pilot第1弾の再現メモ
+
+### GitHubからリポジトリをzipでダウンロード
+
+```{R}
+zip_url <- "https://github.com/RConsortium/submissions-pilot1/archive/refs/heads/main.zip"
+name <- "submissions-pilot1.zip"
+download.file(zip_url, dest = name, mode = "wb")
+unzip(name)
+```
+
+- 解凍されたファイル内の pilot1wrapper.proj 開く
+
+## pilot第1弾の再現メモ
+
+### 実行環境の復元
+
+```{R}
+renv::restore()
+devtools::load_all()  # inst/startup.R を実行
+```
+
+- vignettes/adrg-prepare.Rmd の Dry run という章を実行し `pilot1wrappers` パッケージをインストール
+
+## pilot第1弾の再現メモ
+
+### 結果の確認
+
+- adam ディレクトリには define.xml や 各種 xpt ファイルが格納されている
+- 解析結果は以下のファイルを実行
+    - tlf-primary.Rmd
+    - tlf-kmplot.Rmd
+    - tlf-efficacy.Rmd
+    - tlf-demographic.Rmd
+
+## pilot submission to PMDAもある
+
+- [GitHub](https://github.com/RConsortium/pilot1-to-pmda-submission)
+    - 日本の規制当局PMDAへの申請を目指してる？
+    - 2022年4月以降動きがなく、当分先の話に...？
+
+少しでも貢献したいけど、どうすれば？教えてください！
+
+# まとめ
+
+## 我々は何ができるのか？
+
+- 草の根運動
+    - SASユーザを巻き込み、R便利かもと思ってもらう
+    - 外資系製薬では使い始めてるらしい
+- コミュニティ, pilot submissionをウォッチ
+    - FDA向けは順調そう
+    - PMDA向けのプロジェクトにどうにか貢献する
+
+承認申請でRを使うための議論が活発になってきた  
+日本でももっと盛り上げたい！
+
+# Enjoy😆
+
+# 発表はここまで
+
+# 参考文献・リンク集
+
+## 全般
+
+- [R for Clinical Study Reports & Submission](https://www.youtube.com/watch?v=RBVqKi3FV30)
+    - [slides](https://r4csr.org/slides/r4csr-rstudio.html)
+- [Breaking boundaries through open-source collaboration](https://www.youtube.com/watch?v=APMDOS4v9Hk)
+- [Open source projects from Roche accelerating data science](https://codecollaboration.org/opensource/)
+
+## R Consortium Pilot Submission
+
+- [Overall](https://rconsortium.github.io/submissions-wg/pilot-overall.html)
+- [R pilot submissions to FDA](https://www.youtube.com/watch?v=_nToEBDkEX8)
+- [Using R in Regulatory Review](https://www.youtube.com/watch?v=dtdd_jc1ybw)
+
+## コミュニティ・ワーキンググループ
+
+- [R consortium](https://www.r-consortium.org/)
+- [Pharmaverse](https://pharmaverse.org/)
+    - [Pharmaverse Slack](https://pharmaverse.org/support/)
+- [R/Pharma](https://rinpharma.com/)
+    - [Youtube](https://www.youtube.com/@RinPharma)
+- [R Validation Hub](https://www.pharmar.org/)
+
+## 実務
+
+- [R for Clinical Study Reports and Submission](https://r4csr.org/)
+- [Workshop@R/Pharma 2022](https://github.com/pharmaverse/r-pharma2022)
+
+## 外資系製薬企業のR活用戦略
+
+- [Posit: Open source in pharma from five perspectives](https://posit.co/blog/open-source-in-pharma-from-five-perspectives/)
+- [Posit: R packages and Shiny for FDA clinical trial submissions](https://posit.co/blog/fda-shiny-r-package-submissions/)
+- [Janssen](https://www.youtube.com/watch?v=C2Suw5Trh0A)
+- [AZ](https://www.rstudio.com/blog/building-a-community-in-the-pharmaceutical-industry/)
+- [GSK](https://www.youtube.com/watch?v=J3Tgn-bDHmE)
+
+## イベント・ウェビナー
+
+- [CDISC](https://www.cdisc.org/events)
+- [R consortium](https://www.r-consortium.org/webinars)
