@@ -1,6 +1,6 @@
 ---
 title: "「Rで医薬品承認申請」<br/>を調べた"
-author: "nissinbo"
+author: "nissinbo_"
 date: 2023-03-04
 execute:
   eval: false
@@ -178,6 +178,7 @@ devtools::load_all()  # inst/startup.R を実行
     - SASユーザを巻き込み、R便利かもと思ってもらう
     - 外資系製薬では使い始めてるらしい
 - コミュニティ, pilot submissionをウォッチ
+    - [Pharmaverse Slack](https://pharmaverse.org/support/) に入る
     - FDA向けは順調そう
     - PMDA向けのプロジェクトにどうにか貢献する
 
